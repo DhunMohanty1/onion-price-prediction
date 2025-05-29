@@ -1,0 +1,767 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth dark">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Commodity Price Prediction</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        primary: {
+                            600: '#2563eb',
+                            700: '#1d4ed8',
+                        },
+                        dark: {
+                            800: '#1e293b',
+                            900: '#0f172a',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        .fade-in {
+            animation: fadeIn 0.3s ease-in-out;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        .chart-container {
+            position: relative;
+            height: 400px;
+            width: 100%;
+        }
+        .tooltip {
+            position: relative;
+            display: inline-block;
+        }
+        .tooltip .tooltip-text {
+            visibility: hidden;
+            width: 200px;
+            background-color: rgba(0,0,0,0.8);
+            color: #fff;
+            text-align: center;
+            border-radius: 6px;
+            padding: 5px;
+            position: absolute;
+            z-index: 1;
+            bottom: 125%;
+            left: 50%;
+            transform: translateX(-50%);
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        .tooltip:hover .tooltip-text {
+            visibility: visible;
+            opacity: 1;
+        }
+    </style>
+</head>
+<body class="bg-black dark:bg-black min-h-screen flex items-center justify-center px-4 py-8 transition-colors duration-200">
+    <div class="max-w-6xl w-full bg-[#0b1120] dark:bg-[#0b1120] rounded-xl shadow-xl p-6">
+      <header class="mb-8 text-center">
+        <h1 class="text-3xl font-bold text-blue-500 dark:text-blue-400 mb-2">
+          Commodity Price Predictor
+        </h1>
+        <p class="text-blue-400 dark:text-blue-300">
+          For Odisha Farmers - Accurate Market Price Forecasts
+        </p>
+      </header>
+ 
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div class="lg:col-span-1 bg-[#121a34] dark:bg-[#121a34] p-6 rounded-lg shadow">
+          <h2 class="text-xl font-semibold text-blue-400 dark:text-blue-300 mb-4">
+            Predict Price
+          </h2>
+ 
+          <form id="predictionForm" class="space-y-4" onsubmit="return false;">
+            <div>
+              <label for="commoditySelect" class="block text-sm font-medium text-blue-300 mb-1">Commodity</label>
+              <select
+                id="commoditySelect"
+                name="Commodity"
+                required
+                class="w-full p-2 border border-blue-700 rounded-md bg-[#0d1321] focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-blue-200"
+              >
+                {% for commodity in commodities %}
+                <option value="{{ commodity }}" class="bg-[#0d1321] text-blue-200" {% if commodity == selected_commodity %}selected{% endif %}>{{ commodity | title }}</option>
+                {% endfor %}
+              </select>
+            </div>
+
+            <div class="grid grid-cols-3 gap-3">
+              <div>
+                <label for="dayInput" class="block text-sm font-medium text-blue-300 mb-1">Day</label>
+                <input
+                  type="number"
+                  id="dayInput"
+                  name="Day"
+                  placeholder="1-31"
+                  min="1"
+                  max="31"
+                  required
+                  class="w-full p-2 border border-blue-700 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-[#0d1321] text-blue-200"
+                />
+              </div>
+ 
+              <div>
+                <label for="monthInput" class="block text-sm font-medium text-blue-300 mb-1">Month</label>
+                <input
+                  type="number"
+                  id="monthInput"
+                  name="Month"
+                  placeholder="1-12"
+                  min="1"
+                  max="12"
+                  required
+                  class="w-full p-2 border border-blue-700 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-[#0d1321] text-blue-200"
+                />
+              </div>
+ 
+              <div>
+                <label for="yearInput" class="block text-sm font-medium text-blue-300 mb-1">Year</label>
+                <input
+                  type="number"
+                  id="yearInput"
+                  name="Year"
+                  placeholder="2025"
+                  min="2020"
+                  required
+                  class="w-full p-2 border border-blue-700 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-[#0d1321] text-blue-200"
+                />
+              </div>
+            </div>
+ 
+            <div>
+              <label for="marketSelect" class="block text-sm font-medium text-blue-300 mb-1">Market</label>
+              <select
+                id="marketSelect"
+                name="Market"
+                required
+                class="w-full p-2 border border-blue-700 rounded-md bg-[#0d1321] focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-blue-200"
+              >
+                {% for market in markets %}
+                <option value="{{ market }}" class="bg-[#0d1321] text-blue-200" {% if market == selected_market %}selected{% endif %}>{{ market }}</option>
+                {% endfor %}
+              </select>
+            </div>
+ 
+            <button
+              type="button"
+              onclick="predictPrice()"
+              id="predictButton"
+              class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-md flex items-center justify-center transition-colors duration-200 mt-4"
+            >
+              <span id="buttonText">Predict Price</span>
+              <svg
+                id="loadingSpinner"
+                class="animate-spin -mr-1 ml-2 h-5 w-5 text-white hidden"
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+              >
+                <circle
+                  class="opacity-25"
+                  cx="12"
+                  cy="12"
+                  r="10"
+                  stroke="currentColor"
+                  stroke-width="4"
+                ></circle>
+                <path
+                  class="opacity-75"
+                  fill="currentColor"
+                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                ></path>
+              </svg>
+            </button>
+          </form>
+ 
+          <div
+            id="predictionResult"
+            class="mt-6 p-4 rounded-lg bg-blue-900/30 border border-blue-700 hidden fade-in"
+          >
+            <div class="flex items-center">
+              <svg
+                class="h-5 w-5 text-blue-400 mr-2"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                />
+              </svg>
+              <h3 class="font-medium text-blue-300">Prediction Result</h3>
+            </div>
+            <div
+              id="predictionText"
+              class="mt-2 text-lg font-bold text-blue-200"
+            ></div>
+            <div id="errorText" class="mt-2 text-sm text-red-600 dark:text-red-400"></div>
+          </div>
+
+          <div id="recommendationSection" class="mt-6 p-4 rounded-lg bg-green-900/30 border border-green-700 hidden fade-in">
+            <div class="flex items-center">
+              <svg class="h-5 w-5 text-green-400 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <h3 class="font-medium text-green-300">Farming Recommendations</h3>
+            </div>
+            <div id="recommendationText" class="mt-2 text-blue-200">
+              <p class="mb-2"><span class="font-semibold">Best Harvest Month:</span> <span id="harvestMonth" class="text-green-300"></span></p>
+              <p class="mb-2"><span class="font-semibold">Recommended Sow Month:</span> <span id="sowMonth" class="text-green-300"></span></p>
+              <p class="text-sm text-blue-300 mt-2">(Sow 4 months before harvest for optimal yield timing)</p>
+            </div>
+          </div>
+        </div>
+ 
+        <div class="lg:col-span-2 space-y-8">
+          <div class="bg-[#121a34] dark:bg-[#121a34] p-6 rounded-lg shadow">
+            <div class="flex justify-between items-center mb-4">
+              <h2
+                id="graphTitle"
+                class="text-xl font-semibold text-blue-300 dark:text-blue-300"
+              >
+                {{ selected_commodity | title }} Price Trend in {{ selected_market }} (June 2024 - May 2025)
+              </h2>
+              <div class="flex space-x-2">
+                <button
+                  id="zoomIn"
+                  class="p-1 rounded bg-blue-700 text-blue-300 hover:bg-blue-600"
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    class="h-5 w-5"
+                    viewBox="0 0 20 20"
+                    fill="currentColor"
+                  >
+                    <path
+                      fill-rule="evenodd"
+                      d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z"
+                      clip-rule="evenodd"
+                    />
+                  </svg>
+                </button>
+                <button
+                  id="zoomOut"
+                  class="p-1 rounded bg-blue-700 text-blue-300 hover:bg-blue-600"
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    class="h-5 w-5"
+                    viewBox="0 0 20 20"
+                    fill="currentColor"
+                  >
+                    <path
+                      fill-rule="evenodd"
+                      d="M5 10a1 1 0 011-1h8a1 1 0 110 2H6a1 1 0 01-1-1z"
+                      clip-rule="evenodd"
+                    />
+                  </svg>
+                </button>
+                <button
+                  id="resetZoom"
+                  class="p-1 rounded bg-blue-700 text-blue-300 hover:bg-blue-600"
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    class="h-5 w-5"
+                    viewBox="0 0 20 20"
+                    fill="currentColor"
+                  >
+                    <path
+                      fill-rule="evenodd"
+                      d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z"
+                      clip-rule="evenodd"
+                    />
+                  </svg>
+                </button>
+              </div>
+            </div>
+            <div class="chart-container">
+              <canvas id="priceChart"></canvas>
+            </div>
+            <div class="mt-3 text-sm text-blue-400">
+              <p>Use mouse wheel to zoom, drag to pan. Click reset to return to default view.</p>
+            </div>
+          </div>
+
+          <div class="bg-[#121a34] dark:bg-[#121a34] p-6 rounded-lg shadow">
+            <div class="flex justify-between items-center mb-4">
+              <h2 class="text-xl font-semibold text-blue-300 dark:text-blue-300">
+                Monthly Average Prices & Recommendations
+              </h2>
+            </div>
+            <div class="chart-container">
+              <canvas id="monthlyChart"></canvas>
+            </div>
+            <div class="mt-3 text-sm text-blue-400">
+              <p>Shows average prices by month with recommended sowing and harvesting periods.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+        let priceChart = null;
+let monthlyChart = null;
+const ctx = document.getElementById('priceChart').getContext('2d');
+const monthlyCtx = document.getElementById('monthlyChart').getContext('2d');
+let currentCommodity = document.getElementById('commoditySelect').value;
+let currentMarket = document.getElementById('marketSelect').value;
+
+// Month names for display
+const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+// Initialize main chart with default data
+function initChart(dates, prices, marketName, commodity) {
+    if (priceChart) {
+        priceChart.destroy();
+    }
+    
+    document.getElementById('graphTitle').textContent = 
+        `${commodity.charAt(0).toUpperCase() + commodity.slice(1)} Price Trend in ${marketName} (June 2024 - May 2025)`;
+    
+    priceChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: dates,
+            datasets: [{
+                label: `Predicted Price (₹/quintal)`,
+                data: prices,
+                backgroundColor: 'rgba(37, 99, 235, 0.1)',
+                borderColor: 'rgba(37, 99, 235, 0.8)',
+                borderWidth: 2,
+                pointRadius: 3,
+                pointHoverRadius: 5,
+                pointBackgroundColor: 'rgba(37, 99, 235, 1)',
+                tension: 0.3,
+                fill: true
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                x: {
+                    grid: {
+                        color: 'rgba(200, 200, 200, 0.1)'
+                    },
+                    ticks: {
+                        color: 'rgba(100, 100, 100, 0.8)',
+                        maxRotation: 45,
+                        minRotation: 45
+                    },
+                    title: {
+                        display: true,
+                        text: 'Date',
+                        color: 'rgba(100, 100, 100, 0.8)'
+                    }
+                },
+                y: {
+                    beginAtZero: false,
+                    grid: {
+                        color: 'rgba(200, 200, 200, 0.1)'
+                    },
+                    ticks: {
+                        color: 'rgba(100, 100, 100, 0.8)'
+                    },
+                    title: {
+                        display: true,
+                        text: 'Price in ₹/quintal',
+                        color: 'rgba(100, 100, 100, 0.8)'
+                    }
+                }
+            },
+            plugins: {
+                legend: {
+                    labels: {
+                        color: 'rgba(100, 100, 100, 0.8)'
+                    }
+                },
+                zoom: {
+                    zoom: {
+                        wheel: {
+                            enabled: true,
+                        },
+                        pinch: {
+                            enabled: true
+                        },
+                        mode: 'xy',
+                    },
+                    pan: {
+                        enabled: true,
+                        mode: 'xy',
+                    }
+                },
+                tooltip: {
+                    mode: 'index',
+                    intersect: false,
+                    callbacks: {
+                        label: function(context) {
+                            return `Price: ₹${context.parsed.y.toFixed(2)}/quintal`;
+                        }
+                    }
+                }
+            },
+            interaction: {
+                mode: 'nearest',
+                axis: 'xy',
+                intersect: false
+            }
+        }
+    });
+}
+
+// Initialize monthly chart with recommendations
+function initMonthlyChart(monthlyData, harvestMonth, sowMonth) {
+    if (monthlyChart) {
+        monthlyChart.destroy();
+    }
+
+    const labels = monthNames;
+    const data = Object.values(monthlyData);
+    
+    // Show recommendations
+    document.getElementById('recommendationSection').classList.remove('hidden');
+    document.getElementById('harvestMonth').textContent = monthNames[harvestMonth - 1];
+    document.getElementById('sowMonth').textContent = monthNames[sowMonth - 1];
+
+    monthlyChart = new Chart(monthlyCtx, {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Average Price (₹/quintal)',
+                data: data,
+                backgroundColor: 'rgba(56, 178, 172, 0.6)',
+                borderColor: 'rgba(56, 178, 172, 1)',
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                x: {
+                    grid: {
+                        color: 'rgba(200, 200, 200, 0.1)'
+                    },
+                    ticks: {
+                        color: 'rgba(100, 100, 100, 0.8)'
+                    }
+                },
+                y: {
+                    beginAtZero: false,
+                    grid: {
+                        color: 'rgba(200, 200, 200, 0.1)'
+                    },
+                    ticks: {
+                        color: 'rgba(100, 100, 100, 0.8)'
+                    },
+                    title: {
+                        display: true,
+                        text: 'Price in ₹/quintal',
+                        color: 'rgba(100, 100, 100, 0.8)'
+                    }
+                }
+            },
+            plugins: {
+                legend: {
+                    labels: {
+                        color: 'rgba(100, 100, 100, 0.8)'
+                    }
+                },
+                annotation: {
+                    annotations: {
+                        harvestHighlight: {
+                            type: 'box',
+                            xMin: harvestMonth - 1.5,
+                            xMax: harvestMonth - 0.5,
+                            backgroundColor: 'rgba(72, 187, 120, 0.25)',
+                            borderColor: 'rgba(72, 187, 120, 0.5)',
+                            borderWidth: 1,
+                            label: {
+                                content: 'Best Harvest Month',
+                                enabled: true,
+                                position: 'top',
+                                backgroundColor: 'rgba(72, 187, 120, 0.8)',
+                                color: '#fff'
+                            }
+                        },
+                        sowHighlight: {
+                            type: 'box',
+                            xMin: sowMonth - 1.5,
+                            xMax: sowMonth - 0.5,
+                            backgroundColor: 'rgba(237, 137, 54, 0.25)',
+                            borderColor: 'rgba(237, 137, 54, 0.5)',
+                            borderWidth: 1,
+                            label: {
+                                content: 'Recommended Sow Month',
+                                enabled: true,
+                                position: 'top',
+                                backgroundColor: 'rgba(237, 137, 54, 0.8)',
+                                color: '#fff'
+                            }
+                        }
+                    }
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            return `Average: ₹${context.parsed.y.toFixed(2)}/quintal`;
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+
+// Initial chart with default data
+initChart({{ graph_dates | tojson }}, {{ graph_prices | tojson }}, '{{ selected_market }}', '{{ selected_commodity }}');
+
+// Load monthly data on page load
+loadMonthlyData(currentCommodity, currentMarket);
+
+// Zoom controls
+document.getElementById('zoomIn').addEventListener('click', function() {
+    if (priceChart) {
+        priceChart.zoom(1.1);
+    }
+});
+
+document.getElementById('zoomOut').addEventListener('click', function() {
+    if (priceChart) {
+        priceChart.zoom(0.9);
+    }
+});
+
+document.getElementById('resetZoom').addEventListener('click', function() {
+    if (priceChart) {
+        priceChart.resetZoom();
+    }
+});
+
+// Update markets when commodity changes
+document.getElementById('commoditySelect').addEventListener('change', async function() {
+    const commodity = this.value;
+    currentCommodity = commodity;
+    
+    try {
+        const response = await fetch('/get-markets', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                commodity: commodity
+            })
+        });
+        
+        const data = await response.json();
+        if (data.error) {
+            console.error('Error fetching markets:', data.error);
+            showError('Error loading markets');
+        } else {
+            const marketSelect = document.getElementById('marketSelect');
+            marketSelect.innerHTML = '';
+            
+            data.markets.forEach(market => {
+                const option = document.createElement('option');
+                option.value = market;
+                option.textContent = market;
+                option.className = 'bg-[#0d1321] text-blue-200';
+                marketSelect.appendChild(option);
+            });
+            
+            // Update chart with first market in the list
+            if (data.markets.length > 0) {
+                currentMarket = data.markets[0];
+                await updateChartForMarket(currentMarket, commodity);
+                await loadMonthlyData(commodity, currentMarket);
+            }
+        }
+    } catch (error) {
+        console.error('Error fetching markets:', error);
+        showError('Error loading markets');
+    }
+});
+
+async function predictPrice() {
+    const day = document.getElementById('dayInput').value;
+    const month = document.getElementById('monthInput').value;
+    const year = document.getElementById('yearInput').value;
+    const market = document.getElementById('marketSelect').value;
+    const commodity = document.getElementById('commoditySelect').value;
+    
+    // Validate inputs
+    if (!day || !month || !year || !market || !commodity) {
+        showError('Please fill in all fields');
+        return;
+    }
+    
+    const button = document.getElementById('predictButton');
+    const buttonText = document.getElementById('buttonText');
+    const spinner = document.getElementById('loadingSpinner');
+    const resultDiv = document.getElementById('predictionResult');
+    const predictionText = document.getElementById('predictionText');
+    const errorText = document.getElementById('errorText');
+    
+    // Show loading state
+    button.disabled = true;
+    buttonText.textContent = 'Predicting...';
+    spinner.classList.remove('hidden');
+    resultDiv.classList.add('hidden');
+    resultDiv.classList.remove('bg-red-50', 'dark:bg-red-900/30', 'border-red-200', 'dark:border-red-800');
+    resultDiv.classList.add('bg-blue-50', 'dark:bg-blue-900/30', 'border-blue-200', 'dark:border-blue-800');
+    
+    try {
+        // Make API call to get prediction
+        const response = await fetch('/predict', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                day: parseInt(day),
+                month: parseInt(month),
+                year: parseInt(year),
+                market: market,
+                commodity: commodity
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.error) {
+            showError(data.error);
+        } else {
+            showPrediction(`₹${data.prediction} per quintal`);
+            // Update chart with new market data
+            await updateChartForMarket(market, commodity);
+            await loadMonthlyData(commodity, market);
+        }
+    } catch (error) {
+        showError('Error making prediction. Please try again.');
+        console.error('Prediction error:', error);
+    } finally {
+        // Reset button state
+        button.disabled = false;
+        buttonText.textContent = 'Predict Price';
+        spinner.classList.add('hidden');
+    }
+}
+
+async function loadMonthlyData(commodity, market) {
+    try {
+        const response = await fetch('/recommendation', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                market: market,
+                commodity: commodity
+            })
+        });
+        
+        const data = await response.json();
+        if (data.error) {
+            console.error('Error fetching recommendations:', data.error);
+            document.getElementById('recommendationSection').classList.add('hidden');
+        } else {
+            initMonthlyChart(
+                data.monthly_avg, 
+                data.recommended_harvest_month, 
+                data.recommended_sow_month
+            );
+        }
+    } catch (error) {
+        console.error('Error fetching recommendations:', error);
+        document.getElementById('recommendationSection').classList.add('hidden');
+    }
+}
+
+function showPrediction(price) {
+    const resultDiv = document.getElementById('predictionResult');
+    const predictionText = document.getElementById('predictionText');
+    const errorText = document.getElementById('errorText');
+    
+    predictionText.textContent = price;
+    errorText.textContent = '';
+    resultDiv.classList.remove('hidden');
+}
+
+function showError(message) {
+    const resultDiv = document.getElementById('predictionResult');
+    const predictionText = document.getElementById('predictionText');
+    const errorText = document.getElementById('errorText');
+    
+    errorText.textContent = message;
+    predictionText.textContent = '';
+    resultDiv.classList.remove('hidden');
+    resultDiv.classList.add('bg-red-50', 'border-red-200');
+    resultDiv.classList.remove('bg-blue-50', 'border-blue-200');
+}
+
+async function updateChartForMarket(market, commodity) {
+    const spinner = document.getElementById('loadingSpinner');
+    spinner.classList.remove('hidden');
+    currentMarket = market;
+    currentCommodity = commodity || currentCommodity;
+    
+    try {
+        // Get historical data for this market
+        const response = await fetch('/market-history', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                market: market,
+                commodity: currentCommodity
+            })
+        });
+        
+        const data = await response.json();
+        if (data.error) {
+            console.error('Error fetching market history:', data.error);
+            showError('Error loading market data');
+        } else {
+            initChart(data.dates, data.prices, market, currentCommodity);
+        }
+    } catch (error) {
+        console.error('Error fetching market history:', error);
+        showError('Error loading market data');
+    } finally {
+        spinner.classList.add('hidden');
+    }
+}
+
+// Update chart when market selection changes
+document.getElementById('marketSelect').addEventListener('change', function() {
+    const market = this.value;
+    updateChartForMarket(market);
+    loadMonthlyData(currentCommodity, market);
+});
+
+// Initialize with default market data
+updateChartForMarket(document.getElementById('marketSelect').value);
+      </script>
+</body>
+</html>
