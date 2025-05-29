@@ -2,7 +2,7 @@ from flask import Flask, render_template, request, jsonify
 import joblib
 import pandas as pd
 from datetime import datetime, timedelta
-
+import os
 app = Flask(__name__)
 
 # Load your models
@@ -370,6 +370,5 @@ def recommendation():
         return jsonify({'error': f'An unexpected error occurred: {str(e)}'}), 500
 
 if __name__ == '__main__':
-    # When you run this script directly, Flask will start the development server.
-    # debug=True allows for automatic reloading on code changes and provides a debugger.
-    app.run(debug=True)
+    port = int(os.environ.get('PORT', 5000))
+    app.run(host='0.0.0.0', port=port, debug=True)
